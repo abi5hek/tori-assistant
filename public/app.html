@@ -2,84 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Tori — Student Assistant</title>
+  <title>Torrens Tower — Tori Assistant</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
+  <!-- Scripts (order matters) -->
+  <script defer src="main.js"></script>
+  <script defer src="app.js"></script>
 </head>
-<body class="bg">
+<body class="page page--app">
   <header class="topbar">
-    <div class="brand">
-      <div class="logo-dot"></div>
-      <span class="brand-text">Torrens Tower • Tori</span>
-    </div>
-    <div class="top-actions">
-      <button id="btnVoice" class="btn ghost small">🔊 Voice On</button>
-      <button id="btnMic" class="btn ghost small">🎙️ Speak</button>
-      <button id="btnLogout" class="btn danger small">Logout</button>
-    </div>
+    <div class="logo">Torrens Tower</div>
+    <div class="spacer"></div>
+    <button id="btnVoice" class="chip">🔊 Voice: <span id="voiceState">On</span></button>
+    <button id="btnMic"   class="chip">🎙️ Voice Input</button>
+    <button id="btnLogout" class="chip chip--warn">Logout</button>
   </header>
 
-  <main class="container two-col">
-    <!-- LEFT: Chat + Quick actions -->
-    <section class="card chat-pane">
-      <div class="pane-head">
-        <div>
-          <h2 class="h2">Hi, <span id="who"></span> 👋</h2>
-          <p class="muted">Ask about fees, enrolment, grades, MyLearn, or campus events.</p>
-        </div>
-        <div class="chips">
-          <button class="chip" data-prompt="Give me a MyLearn walkthrough.">MyLearn</button>
-          <button class="chip" data-prompt="How do I view and pay my fees?">Fees</button>
-          <button class="chip" data-prompt="How do I enrol or drop a subject?">Enrolment</button>
-          <button class="chip" data-prompt="Where can I see my grades?">Grades</button>
-          <button class="chip" data-prompt="What campus events are coming up?">Events</button>
+  <main class="container">
+    <!-- LEFT: Tori + quick chips -->
+    <aside class="left">
+      <div class="tori-strip">
+        <img
+          src="media/tori-talking.gif"
+          alt="Tori talking"
+          class="tori-gif"
+        />
+        <div class="tori-meta">
+          <div id="who" class="muted">Hi!</div>
+          <div id="intro" class="bubble">Welcome to Torrens Tower.</div>
         </div>
       </div>
 
-      <div id="chat" class="chat"></div>
+      <h3>Quick help</h3>
+      <div class="chip-row">
+        <button class="chip" data-intent="fees">Fees</button>
+        <button class="chip" data-intent="enrolment">Enrolment</button>
+        <button class="chip" data-intent="grades">Grades</button>
+        <button class="chip" data-intent="mylearn">MyLearn Guide</button>
+        <button class="chip" data-intent="events">Campus Events</button>
+        <button class="chip" data-intent="contacts">Support Contacts</button>
+      </div>
 
-      <div class="io">
-        <input id="msg" type="text" placeholder="Type your question…" />
+      <section class="card card--gallery">
+        <h3>MyLearn Quick Guide</h3>
+        <div class="gallery">
+          <figure>
+            <img src="media/mylearn-dashboard.jpeg" alt="MyLearn Dashboard" />
+            <figcaption>Dashboard overview</figcaption>
+          </figure>
+          <figure>
+            <img src="media/mylearn-subject.jpeg" alt="Subject page" />
+            <figcaption>Subject → Modules, Resources, Assessments</figcaption>
+          </figure>
+          <figure>
+            <img src="media/mylearn-studenthub.jpeg" alt="Student Hub" />
+            <figcaption>Student Hub → Enrolment & Profile</figcaption>
+          </figure>
+        </div>
+      </section>
+    </aside>
+
+    <!-- RIGHT: Chat -->
+    <section class="card chat">
+      <div class="chat-head">
+        <div>
+          <h3 style="margin:0 0 4px">Student Help Chat</h3>
+          <div class="tag">AI Assistant • Web</div>
+        </div>
+        <div class="tag">Status: <span id="statusText">Ready</span></div>
+      </div>
+
+      <div id="chat" class="log"></div>
+
+      <div class="inputbar">
+        <input id="msg" type="text" placeholder="Type here… e.g., ‘How do I find my timetable?’" />
         <button id="send" class="btn">Send</button>
       </div>
-      <p class="hint">Tip: Click “Speak” for voice input (Chrome/Edge). Replies are spoken if Voice is On.</p>
+
+      <div class="hint">Tip: click a quick chip on the left, or just ask a question.</div>
     </section>
-
-    <!-- RIGHT: Guides (bigger screenshots) -->
-    <aside class="card guides-pane">
-      <h3 class="h3">MyLearn Guides</h3>
-      <details open>
-        <summary class="summary">Dashboard</summary>
-        <figure class="guide">
-          <img src="media/mylearn-dashboard.jpeg" alt="MyLearn Dashboard" />
-          <figcaption>Dashboard: find announcements, enrolled units, and quick links.</figcaption>
-        </figure>
-      </details>
-
-      <details>
-        <summary class="summary">Subject Page</summary>
-        <figure class="guide">
-          <img src="media/mylearn-subject.jpeg" alt="MyLearn Subject Page" />
-          <figcaption>Subject page: modules, resources, learning activities, and discussion forum.</figcaption>
-        </figure>
-      </details>
-
-      <details>
-        <summary class="summary">Student Hub</summary>
-        <figure class="guide">
-          <img src="media/mylearn-studenthub.jpeg" alt="MyLearn Student Hub" />
-          <figcaption>Student Hub: enrolment, registered subjects, profile & current GPA.</figcaption>
-        </figure>
-      </details>
-    </aside>
   </main>
-
-  <!-- Small Tori GIF (bottom-right) -->
-  <div class="tori-fab">
-    <img src="media/tori-talking.gif" alt="Tori talking" />
-  </div>
-
-  <script src="main.js"></script>
-  <script src="app.js"></script>
 </body>
 </html>
