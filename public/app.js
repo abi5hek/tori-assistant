@@ -1,65 +1,54 @@
-<script>
-// Page 2 logic – greets with name, simple “AI” replies, voice on/off, mic input.
-(function(){
-  const $  = Tori.qs;
-  const $$ = Tori.qsa;
+document.addEventListener('DOMContentLoaded', () => {
+  // Elements
+  const whoEl       = Tori.$('#who');
+  const introEl     = Tori.$('#intro');
+  const statusEl    = Tori.$('#statusText');
+  const voiceBtn    = Tori.$('#btnVoice');
+  const micBtn      = Tori.$('#btnMic');
+  const logoutBtn   = Tori.$('#btnLogout');
+  const chatEl      = Tori.$('#chat');
+  const msgEl       = Tori.$('#msg');
+  const sendBtn     = Tori.$('#send');
+  const voiceState  = Tori.$('#voiceState');
+  const talkingGif  = Tori.$('#talkingGif');
 
-  // ---- State ----
+  // Ensure media paths are correct
+  if (talkingGif) talkingGif.src = 'media/tori-talking.gif';
+
+  // Params / session
   const url = new URL(location.href);
   const studentId   = url.searchParams.get('studentId')   || sessionStorage.getItem('tori_student_id')   || '';
   const studentName = url.searchParams.get('studentName') || sessionStorage.getItem('tori_student_name') || '';
 
-  // Persist for refresh
   if (studentId)   sessionStorage.setItem('tori_student_id', studentId);
   if (studentName) sessionStorage.setItem('tori_student_name', studentName);
 
-  // ---- UI refs ----
-  const whoEl    = $('#who');
-  const introEl  = $('#intro');
-  const statusEl = $('#statusText');
-  const voiceBtn = $('#btnVoice');
-  const micBtn   = $('#btnMic');
-  const logoutBtn= $('#btnLogout');
-  const chatEl   = $('#chat');
-  const msgEl    = $('#msg');
-  const sendBtn  = $('#send');
-  const voiceStateEl = $('#voiceState');
-
-  // ---- Chat helpers ----
+  // UI helpers
   function addMsg(from, text){
-    const div = document.createElement('div');
-    div.className = 'rowmsg';
-    div.innerHTML = `<div class="from">${from}</div><div class="msg">${Tori.escape(text)}</div>`;
-    chatEl.appendChild(div);
+    const row = document.createElement('div');
+    row.className = 'rowmsg';
+    row.innerHTML = `<div class="from">${from}</div><div class="msg">${Tori.esc(text)}</div>`;
+    chatEl.appendChild(row);
     chatEl.scrollTop = chatEl.scrollHeight;
   }
-  function say(text){
-    addMsg('Tori', text);
-    Tori.speak(text);
-  }
+  function say(text){ addMsg('Tori', text); Tori.speak(text); }
 
-  // ---- Greeting ----
-  function greet(){
-    const who = studentName ? `${studentName} (${studentId || 'no ID'})` : (studentId || 'Guest');
-    whoEl.textContent = `Signed in: ${who}`;
-    const line = studentName
-      ? `Welcome to Torrens Tower, ${studentName}! I can help with fees, enrolment, grades, MyLearn, and campus events.`
-      : `Welcome to Torrens Tower! I can help with fees, enrolment, grades, MyLearn, and campus events.`;
-    introEl.textContent = line;
-    say(line + " For important updates, please check your student email.");
-  }
-  greet();
+  // Greet
+  const who = studentName ? `${studentName}${studentId ? ' ('+studentId+')':''}` : (studentId || 'Guest');
+  whoEl.textContent = `Signed in: ${who}`;
+  const greetLine = studentName
+    ? `Welcome to Torrens Tower, ${studentName}! I can help with fees, enrolment, grades, MyLearn and campus events.`
+    : `Welcome to Torrens Tower! I can help with fees, enrolment, grades, MyLearn and campus events.`;
+  introEl.textContent = greetLine;
+  // Will actually speak once the user clicks somewhere (autoplay policy)
+  Tori.speak(greetLine + ' For important updates, please check your student email.');
 
-  // ---- Voice toggle / mic ----
-  function refreshVoiceUI(){
-    voiceStateEl.textContent = Tori.isVoiceOn()? 'On':'Off';
-  }
-  voiceBtn.addEventListener('click', ()=>{
-    Tori.setVoice(!Tori.isVoiceOn());
-    refreshVoiceUI();
-  });
-  refreshVoiceUI();
+  // Voice toggle
+  function refreshVoice(){ voiceState.textContent = Tori.isVoiceOn() ? 'On' : 'Off'; }
+  voiceBtn.addEventListener('click', ()=>{ Tori.setVoice(!Tori.isVoiceOn()); refreshVoice(); });
+  refreshVoice();
 
+  // Mic (Speech-to-Text)
   micBtn.addEventListener('click', async ()=>{
     try{
       statusEl.textContent='Listening…';
@@ -69,34 +58,37 @@
       handleUser(heard);
     }catch(e){
       statusEl.textContent='Ready';
-      alert('Mic not available in this browser.\nUse Chrome/Edge on desktop/mobile.');
+      alert('Voice input is unavailable in this browser.\nPlease use Chrome or Edge over HTTPS.');
     }
   });
 
+  // Logout
   logoutBtn.addEventListener('click', ()=>{
     sessionStorage.removeItem('tori_student_id');
     sessionStorage.removeItem('tori_student_name');
     location.href = 'index.html';
   });
 
-  // ---- Quick chips (left side) ----
-  $$('.chip[data-intent]').forEach(chip=>{
+  // Chips
+  Tori.$$('.chip[data-intent]').forEach(chip=>{
     chip.addEventListener('click', ()=> handleIntent(chip.dataset.intent));
   });
 
-  // ---- Send message ----
-  sendBtn.addEventListener('click', ()=>{ const v=msgEl.value.trim(); if(v) handleUser(v); });
-  msgEl.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const v=msgEl.value.trim(); if(v) handleUser(v); }});
-
+  // Chat input
   function handleUser(text){
-    msgEl.value='';
+    if (!text) return;
+    msgEl.value = '';
     addMsg('You', text);
-    handleIntent(routeIntent(text));
+    handleIntent(route(text));
   }
+  sendBtn.addEventListener('click', ()=> handleUser(msgEl.value.trim()));
+  msgEl.addEventListener('keydown', e=>{
+    if (e.key === 'Enter') handleUser(msgEl.value.trim());
+  });
 
-  // ---- Simple rule-based assistant (demo mode) ----
-  function routeIntent(q){
-    q = q.toLowerCase();
+  // Router (demo AI, rule-based)
+  function route(q){
+    q = (q||'').toLowerCase();
     if (q.includes('fee')) return 'fees';
     if (q.includes('enrol') || q.includes('enroll')) return 'enrolment';
     if (q.includes('grade') || q.includes('mark')) return 'grades';
@@ -115,7 +107,7 @@
         say("To manage enrolment: open MyLearn → ‘My Subjects’ → ‘Add/Drop’. Check prerequisites and census dates.");
         break;
       case 'grades':
-        say("Grades appear in each subject → ‘Grades’. Marking can take time after submission—watch your subject announcements.");
+        say("Grades appear inside each subject → ‘Grades’. Marking takes time after submissions; watch announcements.");
         break;
       case 'events':
         say("This month: Hackathon (15 Aug), Careers Fair (24 Aug), Study Skills Workshop (Wednesdays 4pm).");
@@ -124,11 +116,10 @@
         say("Student Services: support@university.edu • IT Helpdesk: ithelp@university.edu • Phone: (02) 1234 5678.");
         break;
       case 'mylearn':
-        say("MyLearn walkthrough: 1) Dashboard → 2) My Subjects → 3) Inside a subject: Announcements, Modules, Assessments, Grades. See the images on the left for a quick map.");
+        say("MyLearn walkthrough: 1) Dashboard, 2) My Subjects, 3) Inside a subject: Announcements, Modules, Assessments, Grades. See the gallery on the left for a visual guide.");
         break;
       default:
-        say("I can help with fees, enrolment, grades, MyLearn, events, or support contacts. Try a chip or ask a question.");
+        say("I can help with fees, enrolment, grades, MyLearn, events, or contacts. Try a chip or ask a question.");
     }
   }
-})();
-</script>
+});
