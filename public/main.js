@@ -1,58 +1,72 @@
-// -----------------------------
-// main.js  (shared utilities)
-// - Text-to-Speech (TTS)
-// - Voice utils loader
-// - Small DOM helpers
-// -----------------------------
+<script>
+// Minimal speech + helpers used by both pages.
+// Works offline; requires user gesture to start audio on some browsers.
 
-// ---------- Text-to-Speech (TTS) ----------
-let voiceOn = true;             // toggled on page 2 via a button
-let preferredVoice = null;
+(function(){
+  const Tori = {};
+  window.Tori = Tori;
 
-function pickVoice() {
-  const voices = speechSynthesis.getVoices() || [];
-  // Prefer pleasant female voices, fallback to any English
-  return voices.find(v => /Google UK English Female/i.test(v.name))
-      || voices.find(v => /Samantha/i.test(v.name))            // Safari
-      || voices.find(v => /Microsoft Zira/i.test(v.name))      // Windows
-      || voices.find(v => /female/i.test(v.name))
-      || voices.find(v => /en/i.test(v.lang || "")) || null;
-}
+  // ---------- Text to Speech ----------
+  let voiceOn = true;
+  let preferred = null;
 
-function ensureVoices() {
-  return new Promise(resolve => {
-    const check = () => {
-      const v = speechSynthesis.getVoices();
-      if (v && v.length) resolve();
-      else setTimeout(check, 120);
-    };
-    check();
-  });
-}
+  function pickVoice(){
+    const list = speechSynthesis.getVoices() || [];
+    // Try some pleasant female voices first
+    return list.find(v=>/Google UK English Female/i.test(v.name))
+        || list.find(v=>/Microsoft (Aria|Zira)/i.test(v.name))
+        || list.find(v=>/Samantha/i.test(v.name))
+        || list.find(v=>/female/i.test(v.name))
+        || list.find(v=>/en/i.test(v.lang||""));
+  }
 
-async function speak(text){
-  try{
-    if (!voiceOn) return;
-    if (!('speechSynthesis' in window)) return;
+  function ensureVoices(){
+    return new Promise(resolve=>{
+      const check=()=>{ if ((speechSynthesis.getVoices()||[]).length) resolve(); else setTimeout(check,120);};
+      check();
+    });
+  }
 
-    if (!preferredVoice){
+  Tori.setVoice = (on)=>{ voiceOn = !!on; };
+  Tori.isVoiceOn = ()=> voiceOn;
+
+  Tori.speak = async (text)=>{
+    if (!('speechSynthesis' in window) || !voiceOn) return;
+    try{
       await ensureVoices();
-      preferredVoice = pickVoice();
-    }
+      if (!preferred) preferred = pickVoice();
+      const u = new SpeechSynthesisUtterance(text);
+      if (preferred) u.voice = preferred;
+      u.rate = 1.02; u.pitch = 1.08;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    }catch{}
+  };
 
-    const u = new SpeechSynthesisUtterance(String(text || ''));
-    if (preferredVoice) u.voice = preferredVoice;
-    u.rate = 1.02; u.pitch = 1.08;
+  // ---------- Voice Input (Speech-to-Text) ----------
+  Tori.listen = ()=>{
+    return new Promise((resolve,reject)=>{
+      const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!Rec) return reject(new Error('SpeechRecognition not supported'));
+      const rec = new Rec();
+      rec.lang='en-AU'; rec.interimResults=false; rec.maxAlternatives=1;
+      rec.onresult=(e)=>resolve(e.results[0][0].transcript);
+      rec.onerror =(e)=>reject(e.error||'mic error');
+      rec.onend   =()=>{};
+      rec.start();
+    });
+  };
 
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-  }catch(_e){}
-}
+  // ---------- Small helpers ----------
+  Tori.qs = (s)=>document.querySelector(s);
+  Tori.qsa= (s)=>Array.from(document.querySelectorAll(s));
+  Tori.escape = (s)=>s.replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 
-// ---------- Tiny helpers ----------
-function esc(s){ return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
-function $(sel){ return document.querySelector(sel); }
-function $all(sel){ return Array.from(document.querySelectorAll(sel)); }
-
-// Expose some helpers to other scripts (optional)
-window.Tori = { speak, esc, $, $all, get voiceOn(){ return voiceOn; }, set voiceOn(v){ voiceOn = !!v; } };
+  // Say hi once page is interacted (autoplay policies)
+  window.addEventListener('click', function once(){
+    window.removeEventListener('click', once);
+    // prewarm voices
+    if ('speechSynthesis' in window) speechSynthesis.getVoices();
+  });
+})();
+</script>
