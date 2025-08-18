@@ -1,72 +1,85 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <title>Torrens • Tori Assistant</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <!-- Live2D + Pixi -->
-  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7/dist/pixi.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.5/dist/index.min.js"></script>
-  <link rel="stylesheet" href="styles.css"/>
+  <meta charset="utf-8" />
+  <title>Tori — Student Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-page="tori">
-  <header class="site-head">
-    <div class="head-inner">
-      <div class="logo">TU</div>
-      <div class="brand">Torrens Student Helper</div>
-      <div class="tag">Status: <span id="statusText">Ready</span></div>
+<body class="bg">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <span class="brand-text">Torrens Tower • Tori</span>
+    </div>
+    <div class="top-actions">
+      <button id="btnVoice" class="btn ghost small">🔊 Voice On</button>
+      <button id="btnMic" class="btn ghost small">🎙️ Speak</button>
+      <button id="btnLogout" class="btn danger small">Logout</button>
     </div>
   </header>
 
-  <main class="container">
-    <section class="card card-pad">
-      <div class="app">
-        <!-- Left: Live2D + options -->
-        <aside class="sidebar">
-          <div class="stage" id="stageApp"></div>
-
-          <h3 style="margin:12px 4px">Quick options</h3>
-          <button class="option" data-intent="mylearn">📚 MyLearn Walkthrough</button>
-          <button class="option" data-intent="grades">🧮 Grades</button>
-          <button class="option" data-intent="fees">💳 Fees</button>
-          <button class="option" data-intent="events">📅 Campus Events</button>
-          <button class="option" data-intent="calendar">🗓 Student Calendar</button>
-          <button class="option" data-intent="contacts">☎️ Support Contacts</button>
-
-          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-            <button id="voiceBtn" class="btn" style="flex:1">🔊 Voice On</button>
-            <button id="micBtn"   class="btn secondary" style="flex:1">🎙️ Speak</button>
-            <button id="testVoiceBtn" class="btn secondary" style="flex:1;min-width:140px" type="button">🔈 Test Voice</button>
-          </div>
-        </aside>
-
-        <!-- Right: Chat -->
-        <section class="chat">
-          <div class="chat-head">
-            <div>
-              <strong id="welcomeLine">Welcome</strong>
-              <div class="tag">AI Assistant • Tori</div>
-            </div>
-          </div>
-
-          <div class="log" id="log"></div>
-
-          <div class="inputbar">
-            <input id="input" type="text" placeholder="Ask anything… e.g., 'How do I find my timetable?'"/>
-            <button class="btn" id="send">Send</button>
-          </div>
-          <div class="hint">Say or click: “MyLearn”, “Grades”, “Fees”, “Events”, “Calendar”, “Support”.</div>
-        </section>
+  <main class="container two-col">
+    <!-- LEFT: Chat + Quick actions -->
+    <section class="card chat-pane">
+      <div class="pane-head">
+        <div>
+          <h2 class="h2">Hi, <span id="who"></span> 👋</h2>
+          <p class="muted">Ask about fees, enrolment, grades, MyLearn, or campus events.</p>
+        </div>
+        <div class="chips">
+          <button class="chip" data-prompt="Give me a MyLearn walkthrough.">MyLearn</button>
+          <button class="chip" data-prompt="How do I view and pay my fees?">Fees</button>
+          <button class="chip" data-prompt="How do I enrol or drop a subject?">Enrolment</button>
+          <button class="chip" data-prompt="Where can I see my grades?">Grades</button>
+          <button class="chip" data-prompt="What campus events are coming up?">Events</button>
+        </div>
       </div>
+
+      <div id="chat" class="chat"></div>
+
+      <div class="io">
+        <input id="msg" type="text" placeholder="Type your question…" />
+        <button id="send" class="btn">Send</button>
+      </div>
+      <p class="hint">Tip: Click “Speak” for voice input (Chrome/Edge). Replies are spoken if Voice is On.</p>
     </section>
+
+    <!-- RIGHT: Guides (bigger screenshots) -->
+    <aside class="card guides-pane">
+      <h3 class="h3">MyLearn Guides</h3>
+      <details open>
+        <summary class="summary">Dashboard</summary>
+        <figure class="guide">
+          <img src="media/mylearn-dashboard.jpeg" alt="MyLearn Dashboard" />
+          <figcaption>Dashboard: find announcements, enrolled units, and quick links.</figcaption>
+        </figure>
+      </details>
+
+      <details>
+        <summary class="summary">Subject Page</summary>
+        <figure class="guide">
+          <img src="media/mylearn-subject.jpeg" alt="MyLearn Subject Page" />
+          <figcaption>Subject page: modules, resources, learning activities, and discussion forum.</figcaption>
+        </figure>
+      </details>
+
+      <details>
+        <summary class="summary">Student Hub</summary>
+        <figure class="guide">
+          <img src="media/mylearn-studenthub.jpeg" alt="MyLearn Student Hub" />
+          <figcaption>Student Hub: enrolment, registered subjects, profile & current GPA.</figcaption>
+        </figure>
+      </details>
+    </aside>
   </main>
 
-  <script src="firebase.js"></script>
+  <!-- Small Tori GIF (bottom-right) -->
+  <div class="tori-fab">
+    <img src="media/tori-talking.gif" alt="Tori talking" />
+  </div>
+
   <script src="main.js"></script>
   <script src="app.js"></script>
-  <script>
-    initLive2D("stageApp", "assets/live2d/tori/tori.model3.json");
-  </script>
 </body>
 </html>
