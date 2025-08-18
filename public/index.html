@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Torrens • Tori Assistant — Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!-- Live2D + Pixi -->
+  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7/dist/pixi.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.5/dist/index.min.js"></script>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="intro">
+  <header class="site-head">
+    <div class="head-inner">
+      <div class="logo">TU</div>
+      <div class="brand">Torrens Student Helper</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card card-pad hero">
+      <div>
+        <h1>Welcome to <span class="brand-accent">Torrens Tower</span></h1>
+        <p>Meet <b>Tori</b> — your live AI guide for MyLearn, Grades, Fees, Events & Calendar.</p>
+
+        <form id="introForm" class="form-grid" style="margin-top:12px;max-width:520px">
+          <div>
+            <label for="studentName">Your Name</label>
+            <input id="studentName" type="text" placeholder="e.g., Alex Lee" required/>
+          </div>
+          <div>
+            <label for="studentId">Student ID</label>
+            <input id="studentId" type="text" placeholder="e.g., S123456" required/>
+          </div>
+          <div class="hero-cta">
+            <button class="btn" type="submit">Continue</button>
+            <button class="btn secondary" id="testVoiceBtn" type="button">🔈 Test Voice</button>
+          </div>
+          <small class="muted">For important updates, please check your student email.</small>
+        </form>
+      </div>
+
+      <!-- Live2D Stage (Tori visible from page 1) -->
+      <div class="stage tall" id="stageIntro"></div>
+    </section>
+  </main>
+
+  <script src="firebase.js"></script>
+  <script src="main.js"></script>
+  <script>
+    initLive2D("stageIntro", "assets/live2d/tori/tori.model3.json");
+  </script>
+</body>
+</html>

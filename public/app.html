@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Torrens • Tori Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!-- Live2D + Pixi -->
+  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7/dist/pixi.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.5/dist/index.min.js"></script>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="tori">
+  <header class="site-head">
+    <div class="head-inner">
+      <div class="logo">TU</div>
+      <div class="brand">Torrens Student Helper</div>
+      <div class="tag">Status: <span id="statusText">Ready</span></div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card card-pad">
+      <div class="app">
+        <!-- Left: Live2D + options -->
+        <aside class="sidebar">
+          <div class="stage" id="stageApp"></div>
+
+          <h3 style="margin:12px 4px">Quick options</h3>
+          <button class="option" data-intent="mylearn">📚 MyLearn Walkthrough</button>
+          <button class="option" data-intent="grades">🧮 Grades</button>
+          <button class="option" data-intent="fees">💳 Fees</button>
+          <button class="option" data-intent="events">📅 Campus Events</button>
+          <button class="option" data-intent="calendar">🗓 Student Calendar</button>
+          <button class="option" data-intent="contacts">☎️ Support Contacts</button>
+
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+            <button id="voiceBtn" class="btn" style="flex:1">🔊 Voice On</button>
+            <button id="micBtn"   class="btn secondary" style="flex:1">🎙️ Speak</button>
+            <button id="testVoiceBtn" class="btn secondary" style="flex:1;min-width:140px" type="button">🔈 Test Voice</button>
+          </div>
+        </aside>
+
+        <!-- Right: Chat -->
+        <section class="chat">
+          <div class="chat-head">
+            <div>
+              <strong id="welcomeLine">Welcome</strong>
+              <div class="tag">AI Assistant • Tori</div>
+            </div>
+          </div>
+
+          <div class="log" id="log"></div>
+
+          <div class="inputbar">
+            <input id="input" type="text" placeholder="Ask anything… e.g., 'How do I find my timetable?'"/>
+            <button class="btn" id="send">Send</button>
+          </div>
+          <div class="hint">Say or click: “MyLearn”, “Grades”, “Fees”, “Events”, “Calendar”, “Support”.</div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="firebase.js"></script>
+  <script src="main.js"></script>
+  <script src="app.js"></script>
+  <script>
+    initLive2D("stageApp", "assets/live2d/tori/tori.model3.json");
+  </script>
+</body>
+</html>
