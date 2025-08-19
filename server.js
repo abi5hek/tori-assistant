@@ -1,138 +1,92 @@
-/**
- * Tori Assistant backend
- * - Serves static frontend from /public
- * - /api/chat : OpenAI Chat (needs OPENAI_API_KEY)
- * - /api/student/:id [GET, PUT] : Firestore (optional; needs Firebase Admin env vars)
- */
+// server.js
+// Express web service: serves /public and proxies AI calls to OpenAI at /api/ask
+// Env vars needed on Render: OPENAI_API_KEY (and optionally PORT)
 
-require('dotenv').config();
-const path = require('path');
-const express = require('express');
-const cors = require('cors');
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(express.json({ limit: "1mb" }));
 
-// ---------- middleware ----------
-app.use(cors({ origin: true }));
-app.use(express.json({ limit: '2mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve frontend
+app.use(express.static(path.join(__dirname, "public")));
 
-// ---------- OpenAI ----------
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+// Health check
+app.get("/healthz", (req, res) => res.send("ok"));
 
-async function callOpenAI(userMessage, context = '') {
-  if (!OPENAI_API_KEY) {
-    throw new Error('Missing OPENAI_API_KEY');
-  }
+// Minimal knowledge the model can use (you can edit freely)
+const KB = {
+  fees: "View and pay fees in the Student Portal → Payments. For payment plans, contact Student Services.",
+  enrolment: "Use MyLearn → ‘My Subjects’ → ‘Add/Drop’. Check prerequisites and census dates.",
+  events: "Examples: Careers Fair, Hackathons, Skills Workshops. Check your calendar regularly.",
+  mylearnGuide: [
+    "Dashboard → announcements, calendar, grades, messages",
+    "Subjects → open a unit; left menu has Announcements, Modules, Assessments, Grades",
+    "Assessments → due dates, instructions, rubrics, submissions",
+    "Grades → feedback and marks when released",
+    "Calendar → class times, due dates, events"
+  ],
+  contacts: "Student Services: support@university.edu • IT: ithelp@university.edu • Phone: (02) 1234 5678"
+};
 
-  const systemPrompt = `You are Tori, a friendly university student assistant.
-Be concise, specific, and helpful. If you don't know, say so and suggest Student Services.`;
+// AI endpoint
+app.post("/api/ask", async (req, res) => {
+  try {
+    const { message, student } = req.body || {};
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "OPENAI_API_KEY missing on server" });
 
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'gpt-3.5-turbo',
-      temperature: 0.6,
+    const system = [
+      "You are Tori, a warm, concise student assistant for a university website.",
+      "Answer clearly in 1–4 short sentences unless the user asks for more detail.",
+      "If the user asks about fees, enrolment, events, or MyLearn, use the provided knowledge.",
+      "Never fabricate personal student data.",
+      `Knowledge: ${JSON.stringify(KB)}`
+    ].join("\n");
+
+    const body = {
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini", // or "gpt-3.5-turbo"
+      temperature: 0.4,
       messages: [
-        { role: 'system', content: systemPrompt + (context ? `\nContext:\n${context}` : '') },
-        { role: 'user', content: userMessage || 'Hello' }
-      ]
-    })
-  });
+        { role: "system", content: system },
+        student && (student.name || student.id)
+          ? { role: "system", content: `Student context: name="${student.name||""}", id="${student.id||""}"` }
+          : null,
+        { role: "user", content: String(message || "") }
+      ].filter(Boolean)
+    };
 
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`OpenAI ${resp.status}: ${text}`);
-  }
-
-  const data = await resp.json();
-  return (data?.choices?.[0]?.message?.content || 'Sorry, I could not answer that.').trim();
-}
-
-// POST /api/chat  -> { reply }
-app.post('/api/chat', async (req, res) => {
-  try {
-    const { message, context } = req.body || {};
-    const reply = await callOpenAI(message, context);
-    res.json({ reply });
-  } catch (err) {
-    console.error('[AI ERROR]', err.message);
-    res.status(500).json({ reply: 'Error contacting AI (check server logs & OPENAI_API_KEY).' });
-  }
-});
-
-// ---------- Firebase Admin (optional) ----------
-let db = null;
-(() => {
-  const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = process.env;
-  if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
-    console.warn('[Firebase] Admin not configured. Student endpoints will return 501.');
-    return;
-  }
-  try {
-    const admin = require('firebase-admin');
-    const privateKey = FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'); // un-escape newlines
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: FIREBASE_PROJECT_ID,
-        clientEmail: FIREBASE_CLIENT_EMAIL,
-        privateKey
-      })
+    // Node 18+ has fetch built-in on Render
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body)
     });
-    db = admin.firestore();
-    console.log('[Firebase] Admin initialized.');
+
+    if (!r.ok) {
+      const text = await r.text();
+      return res.status(502).json({ error: "OpenAI error", detail: text });
+    }
+    const data = await r.json();
+    const reply = data?.choices?.[0]?.message?.content?.trim() || "Sorry, I couldn’t find that.";
+    res.json({ reply });
   } catch (e) {
-    console.error('[Firebase] Initialization failed:', e.message);
-  }
-})();
-
-// GET /api/student/:id  -> returns /students/{id}
-app.get('/api/student/:id', async (req, res) => {
-  try {
-    if (!db) return res.status(501).json({ error: 'Firebase not configured on server.' });
-    const id = String(req.params.id || '').trim();
-    if (!id) return res.status(400).json({ error: 'Missing student id.' });
-
-    const snap = await db.collection('students').doc(id).get();
-    if (!snap.exists) return res.status(404).json({ error: 'Student not found.' });
-
-    res.json({ id, ...snap.data() });
-  } catch (e) {
-    console.error('[Student GET]', e.message);
-    res.status(500).json({ error: 'Failed to fetch student.' });
+    console.error("AI error:", e);
+    res.status(500).json({ error: "Server error", detail: String(e) });
   }
 });
 
-// PUT /api/student/:id  -> upsert fields into /students/{id}
-app.put('/api/student/:id', async (req, res) => {
-  try {
-    if (!db) return res.status(501).json({ error: 'Firebase not configured on server.' });
-    const id = String(req.params.id || '').trim();
-    if (!id) return res.status(400).json({ error: 'Missing student id.' });
-
-    const data = req.body || {};
-    await db.collection('students').doc(id).set(data, { merge: true });
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('[Student PUT]', e.message);
-    res.status(500).json({ error: 'Failed to save student.' });
-  }
+// All other routes → index.html (so links still work if user deep-links)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// health
-app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
-
-// SPA fallback for your frontend (serves /public/index.html)
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// start
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Tori backend running on http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
