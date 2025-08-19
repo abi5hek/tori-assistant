@@ -1,125 +1,129 @@
-document.addEventListener('DOMContentLoaded', () => {
-  // Elements
-  const whoEl       = Tori.$('#who');
-  const introEl     = Tori.$('#intro');
-  const statusEl    = Tori.$('#statusText');
-  const voiceBtn    = Tori.$('#btnVoice');
-  const micBtn      = Tori.$('#btnMic');
-  const logoutBtn   = Tori.$('#btnLogout');
-  const chatEl      = Tori.$('#chat');
-  const msgEl       = Tori.$('#msg');
-  const sendBtn     = Tori.$('#send');
-  const voiceState  = Tori.$('#voiceState');
-  const talkingGif  = Tori.$('#talkingGif');
+// public/app.js
+// Page 2 assistant: greets by name, hooks buttons, mic, and calls /api/ask for real AI replies.
 
-  // Ensure media paths are correct
-  if (talkingGif) talkingGif.src = 'media/tori-talking.gif';
+(function(){
+  const { $, $$, esc, speak, listenOnce, setVoice, isVoiceOn } = window.Tori;
 
-  // Params / session
+  // Elements (make sure your app.html has these IDs/classes)
+  const whoEl      = $('#who');
+  const introEl    = $('#intro');
+  const statusEl   = $('#statusText');
+  const voiceBtn   = $('#btnVoice');
+  const voiceState = $('#voiceState');
+  const micBtn     = $('#btnMic');
+  const logoutBtn  = $('#btnLogout');
+
+  const chatEl  = $('#chat');
+  const msgEl   = $('#msg');
+  const sendBtn = $('#send');
+
+  const toriGif = $('#talkingGif'); // optional <img id="talkingGif">
+  if (toriGif) toriGif.src = 'media/tori-talking.gif';
+
+  // Student context from URL or session
   const url = new URL(location.href);
-  const studentId   = url.searchParams.get('studentId')   || sessionStorage.getItem('tori_student_id')   || '';
-  const studentName = url.searchParams.get('studentName') || sessionStorage.getItem('tori_student_name') || '';
+  const student = {
+    id:   url.searchParams.get('studentId')   || sessionStorage.getItem('tori_student_id')   || '',
+    name: url.searchParams.get('studentName') || sessionStorage.getItem('tori_student_name') || ''
+  };
+  if (student.id)   sessionStorage.setItem('tori_student_id', student.id);
+  if (student.name) sessionStorage.setItem('tori_student_name', student.name);
 
-  if (studentId)   sessionStorage.setItem('tori_student_id', studentId);
-  if (studentName) sessionStorage.setItem('tori_student_name', studentName);
-
-  // UI helpers
+  // Helpers
   function addMsg(from, text){
     const row = document.createElement('div');
     row.className = 'rowmsg';
-    row.innerHTML = `<div class="from">${from}</div><div class="msg">${Tori.esc(text)}</div>`;
+    row.innerHTML = `<div class="from">${from}</div><div class="msg">${esc(text)}</div>`;
     chatEl.appendChild(row);
     chatEl.scrollTop = chatEl.scrollHeight;
   }
-  function say(text){ addMsg('Tori', text); Tori.speak(text); }
+  function say(text){ addMsg('Tori', text); speak(text); }
 
   // Greet
-  const who = studentName ? `${studentName}${studentId ? ' ('+studentId+')':''}` : (studentId || 'Guest');
-  whoEl.textContent = `Signed in: ${who}`;
-  const greetLine = studentName
-    ? `Welcome to Torrens Tower, ${studentName}! I can help with fees, enrolment, grades, MyLearn and campus events.`
-    : `Welcome to Torrens Tower! I can help with fees, enrolment, grades, MyLearn and campus events.`;
-  introEl.textContent = greetLine;
-  // Will actually speak once the user clicks somewhere (autoplay policy)
-  Tori.speak(greetLine + ' For important updates, please check your student email.');
+  function greet(){
+    const who = student.name ? `${student.name}${student.id ? ' ('+student.id+')':''}` : (student.id || 'Guest');
+    if (whoEl) whoEl.textContent = `Signed in: ${who}`;
+    const line = student.name
+      ? `Welcome to Torrens Tower, ${student.name}! I can help with fees, enrolment, grades, MyLearn and campus events.`
+      : `Welcome to Torrens Tower! I can help with fees, enrolment, grades, MyLearn and campus events.`;
+    if (introEl) introEl.textContent = line;
+    say(line + " For important updates, please check your student email.");
+  }
+  greet();
 
   // Voice toggle
-  function refreshVoice(){ voiceState.textContent = Tori.isVoiceOn() ? 'On' : 'Off'; }
-  voiceBtn.addEventListener('click', ()=>{ Tori.setVoice(!Tori.isVoiceOn()); refreshVoice(); });
-  refreshVoice();
+  function refreshVoiceUI(){ if (voiceState) voiceState.textContent = isVoiceOn() ? 'On' : 'Off'; }
+  voiceBtn?.addEventListener('click', ()=>{
+    setVoice(!isVoiceOn());
+    refreshVoiceUI();
+  });
+  refreshVoiceUI();
 
-  // Mic (Speech-to-Text)
-  micBtn.addEventListener('click', async ()=>{
+  // Mic (speech-to-text)
+  micBtn?.addEventListener('click', async ()=>{
     try{
-      statusEl.textContent='Listening…';
-      const heard = await Tori.listen();
-      statusEl.textContent='Ready';
-      msgEl.value = heard;
-      handleUser(heard);
+      if (statusEl) statusEl.textContent = 'Listening…';
+      const heard = await listenOnce();
+      if (statusEl) statusEl.textContent = 'Ready';
+      if (heard) { msgEl.value = heard; handleSend(); }
     }catch(e){
-      statusEl.textContent='Ready';
-      alert('Voice input is unavailable in this browser.\nPlease use Chrome or Edge over HTTPS.');
+      if (statusEl) statusEl.textContent = 'Ready';
+      alert('Voice input not supported in this browser. Use Chrome/Edge over HTTPS.');
     }
   });
 
   // Logout
-  logoutBtn.addEventListener('click', ()=>{
+  logoutBtn?.addEventListener('click', ()=>{
     sessionStorage.removeItem('tori_student_id');
     sessionStorage.removeItem('tori_student_name');
     location.href = 'index.html';
   });
 
-  // Chips
-  Tori.$$('.chip[data-intent]').forEach(chip=>{
-    chip.addEventListener('click', ()=> handleIntent(chip.dataset.intent));
+  // Quick chips on the left (require class="chip" data-intent="fees" etc.)
+  $$('.chip[data-intent]').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const intent = chip.dataset.intent;
+      const prompts = {
+        fees:     "Explain how to view and pay my university fees.",
+        enrolment:"How do I add or drop subjects in MyLearn and what about census dates?",
+        grades:   "Where do I see my grades and feedback in MyLearn?",
+        events:   "What campus events are coming up and where do I find the calendar?",
+        mylearn:  "Give me a quick MyLearn walkthrough: Dashboard, Subjects, Assessments, Grades, Calendar.",
+        contacts: "Give me key support contacts: Student Services and IT Helpdesk."
+      };
+      const text = prompts[intent] || "Help me with general student support.";
+      askAI(text);
+    });
   });
 
-  // Chat input
-  function handleUser(text){
-    if (!text) return;
+  // Send chat
+  function handleSend(){
+    const v = (msgEl.value || '').trim();
+    if (!v) return;
+    askAI(v);
     msgEl.value = '';
+  }
+  sendBtn?.addEventListener('click', handleSend);
+  msgEl?.addEventListener('keydown', e=>{ if (e.key === 'Enter') handleSend(); });
+
+  // Call backend AI
+  async function askAI(text){
     addMsg('You', text);
-    handleIntent(route(text));
-  }
-  sendBtn.addEventListener('click', ()=> handleUser(msgEl.value.trim()));
-  msgEl.addEventListener('keydown', e=>{
-    if (e.key === 'Enter') handleUser(msgEl.value.trim());
-  });
-
-  // Router (demo AI, rule-based)
-  function route(q){
-    q = (q||'').toLowerCase();
-    if (q.includes('fee')) return 'fees';
-    if (q.includes('enrol') || q.includes('enroll')) return 'enrolment';
-    if (q.includes('grade') || q.includes('mark')) return 'grades';
-    if (q.includes('event') || q.includes('campus')) return 'events';
-    if (q.includes('mylearn') || q.includes('portal') || q.includes('guide')) return 'mylearn';
-    if (q.includes('contact') || q.includes('support') || q.includes('helpdesk')) return 'contacts';
-    return 'fallback';
-  }
-
-  function handleIntent(intent){
-    switch(intent){
-      case 'fees':
-        say("You can view and pay fees in the Student Portal → Payments. For payment plans, contact Student Services.");
-        break;
-      case 'enrolment':
-        say("To manage enrolment: open MyLearn → ‘My Subjects’ → ‘Add/Drop’. Check prerequisites and census dates.");
-        break;
-      case 'grades':
-        say("Grades appear inside each subject → ‘Grades’. Marking takes time after submissions; watch announcements.");
-        break;
-      case 'events':
-        say("This month: Hackathon (15 Aug), Careers Fair (24 Aug), Study Skills Workshop (Wednesdays 4pm).");
-        break;
-      case 'contacts':
-        say("Student Services: support@university.edu • IT Helpdesk: ithelp@university.edu • Phone: (02) 1234 5678.");
-        break;
-      case 'mylearn':
-        say("MyLearn walkthrough: 1) Dashboard, 2) My Subjects, 3) Inside a subject: Announcements, Modules, Assessments, Grades. See the gallery on the left for a visual guide.");
-        break;
-      default:
-        say("I can help with fees, enrolment, grades, MyLearn, events, or contacts. Try a chip or ask a question.");
+    if (statusEl) statusEl.textContent = 'Thinking…';
+    try{
+      const r = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ message: text, student })
+      });
+      const data  = await r.json();
+      const reply = data?.reply || data?.error || "Sorry, something went wrong.";
+      say(reply);
+    }catch(e){
+      console.error(e);
+      say("Network error. Please try again.");
+    }finally{
+      if (statusEl) statusEl.textContent = 'Ready';
     }
   }
-});
+})();
