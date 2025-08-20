@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Torrens Tower — Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./styles.css" />
+  <style>
+    /* only tiny page-2 specifics */
+    .layout { display:grid; grid-template-columns: 340px 1fr; gap:20px; }
+    @media (max-width: 900px){ .layout { grid-template-columns: 1fr; } }
+    .left { background:#fff; border:1px solid var(--border); border-radius:16px; padding:16px; }
+    .menu button{ width:100%; text-align:left; padding:10px 12px; margin:6px 0; border:1px solid var(--border);
+                  background:var(--brand-50); border-radius:10px; font-weight:700; cursor:pointer }
+    .menu button:hover{ border-color:var(--brand); }
+    .right { background:#fff; border:1px solid var(--border); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:12px; }
+
+    /* Make the GIF a tidier vertical rectangle (not stretched wide) */
+    .tori-gif{
+      width:70%; max-width:420px;
+      aspect-ratio: 7 / 4;          /* taller rectangle */
+      object-fit:cover;
+      border:1px solid var(--border); border-radius:12px;
+    }
+    @supports not (aspect-ratio: 1){ .tori-gif{ height:420px; } }
+
+    .bubble{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px; min-height:70px; }
+
+    .askrow{ display:flex; gap:8px; }
+    .askrow input{ flex:1; padding:12px; border:1px solid var(--border); border-radius:10px; }
+    .btn{ background:var(--brand); color:#fff; border:none; border-radius:10px; padding:10px 12px; font-weight:800; cursor:pointer }
+    .btn.secondary{ background:#fff; color:var(--brand); border:2px solid var(--brand) }
+    .meta{ color:#7a3d1f; font-weight:700; }
+
+    /* MyLearn gallery */
+    .gallery{ display:none; gap:12px; margin-top:6px; flex-wrap:wrap }
+    .gallery img{
+      width:100%; max-width:280px; aspect-ratio: 16/10; object-fit:cover;
+      border:1px solid var(--border); border-radius:10px; cursor:pointer;
+      transition: transform .15s ease;
+    }
+    .gallery img:hover{ transform:scale(1.02) }
+
+    /* simple lightbox */
+    .lightbox{
+      position:fixed; inset:0; background:rgba(0,0,0,.75);
+      display:none; align-items:center; justify-content:center; padding:16px; z-index:50;
+    }
+    .lightbox img{ max-width:min(1100px,95vw); max-height:90vh; border-radius:12px; }
+  </style>
+</head>
+<body>
+  <!-- header reused -->
+  <header class="header">
+    <div class="container nav">
+      <div class="brand">
+        <span class="dot"></span>
+        <span class="title">Torrens Tower</span>
+      </div>
+      <span class="badge">Student Assistant</span>
+      <div class="spacer"></div>
+      <span id="welcomeTag" class="kicker">Guest</span>
+    </div>
+  </header>
+
+  <main class="container mt-16">
+    <h1 id="hello" class="big">Welcome!</h1>
+
+    <div class="layout mt-12">
+      <!-- LEFT: menu -->
+      <aside class="left">
+        <div class="meta">Quick help</div>
+        <div class="menu mt-8">
+          <button data-intent="mylearn">MyLearn guide</button>
+          <button data-intent="fees">Fees</button>
+          <button data-intent="enrolment">Enrolment</button>
+          <button data-intent="grades">Grades</button>
+          <button data-intent="events">Campus events</button>
+          <button data-intent="contacts">Support contacts</button>
+        </div>
+      </aside>
+
+      <!-- RIGHT: chat panel -->
+      <section class="right">
+        <img src="./media/tori-talking.gif" alt="Tori speaking" class="tori-gif">
+        <div id="bubble" class="bubble">Hi! I’m Tori.</div>
+
+        <!-- MyLearn screenshots (hidden until the MyLearn button is clicked) -->
+        <div id="gallery" class="gallery">
+          <img src="./media/mylearn-dashboard.jpeg" alt="MyLearn Dashboard" data-big="./media/mylearn-dashboard.jpeg">
+          <img src="./media/mylearn-subject.jpeg" alt="MyLearn Subject page" data-big="./media/mylearn-subject.jpeg">
+          <img src="./media/mylearn-studenthub.jpeg" alt="Student Hub" data-big="./media/mylearn-studenthub.jpeg">
+        </div>
+
+        <div class="askrow">
+          <input id="ask" type="text" placeholder="Ask me anything… e.g., fees plan, enrolment, MyLearn walkthrough" />
+          <button id="say" class="btn">Speak</button>
+          <button id="mic" class="btn secondary" title="Use your microphone">🎙️</button>
+        </div>
+        <div class="hint">Tip: Press any menu on the left, or type and press <b>Speak</b>. Mic works in Chrome/Edge after you allow permission.</div>
+      </section>
+    </div>
+  </main>
+
+  <!-- simple lightbox for screenshots -->
+  <div id="lightbox" class="lightbox" aria-hidden="true">
+    <img alt="preview">
+  </div>
+
+  <!-- Buttons + TTS + mic + optional /api/ask -->
+  <script>
+    // ---------- helpers ----------
+    const $ = s => document.querySelector(s);
+    const bubbleEl = $('#bubble');
+    const setBubble = t => bubbleEl.textContent = t;
+    const getParam = k => new URLSearchParams(location.search).get(k);
+
+    // ---------- intent KB ----------
+    const KB = {
+      fees:
+`You can view and pay your fees via the Student Portal → Payments.
+If you need a plan, contact Student Services.`,
+
+      enrolment:
+`Manage enrolments in MyLearn: “My Subjects” → “Add/Drop”.
+Please check prerequisites and census dates first.`,
+
+      grades:
+`Find grades inside each subject: open the subject → “Grades”.
+Feedback appears once released by your lecturer.`,
+
+      events:
+`Upcoming items: Hackathon • Careers Fair • Study Skills.
+See the Student Hub calendar for dates and RSVP links.`,
+
+      contacts:
+`Student Services: support@university.edu
+IT Helpdesk: ithelp@university.edu
+Phone: (02) 1 2 3 4 5 6 7 8`,
+
+      mylearn:
+`MyLearn walkthrough:
+1) Dashboard shows announcements and deadlines.
+2) Click “My Subjects”.
+3) Inside a subject: Announcements, Modules, Assessments.
+4) The “Grades” tab shows marks and feedback when released.`
+    };
+
+    function replyForIntent(inputOrIntent, ctx){
+      const q = (inputOrIntent || '').toString().toLowerCase();
+      if (q === 'fees' || q.includes('fee')) return KB.fees;
+      if (q === 'enrolment' || q.includes('enrol') || q.includes('enroll')) return KB.enrolment;
+      if (q === 'grades' || q.includes('grade') || q.includes('mark')) return KB.grades;
+      if (q === 'events' || q.includes('event') || q.includes('campus')) return KB.events;
+      if (q === 'contacts' || q.includes('contact') || q.includes('support')) return KB.contacts;
+      if (q === 'mylearn' || q.includes('mylearn') || q.includes('guide')) return KB.mylearn;
+      const name = ctx?.name || 'there';
+      return `I can help with fees, enrolment, grades, campus events, or a MyLearn walkthrough. What do you need, ${name}?`;
+    }
+
+    async function askAI(prompt, ctx){
+      try{
+        const r = await fetch('/api/ask', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ prompt, student: ctx })
+        });
+        if (!r.ok) throw new Error('backend_error');
+        const data = await r.json();
+        if (data && data.reply) return data.reply;
+        throw new Error('bad_response');
+      }catch(_){
+        return replyForIntent(prompt, ctx); // fallback if backend not live
+      }
+    }
+
+    // ---------- speech (TTS) ----------
+    let voiceEnabled = false;
+    let preferredVoice = null;
+
+    const waitForVoices = () => new Promise(res=>{
+      if (!('speechSynthesis' in window)) return res();
+      const ready = ()=> (speechSynthesis.getVoices()||[]).length>0;
+      if (ready()) return res();
+      const t = setInterval(()=>{ if (ready()){ clearInterval(t); res(); }}, 120);
+      setTimeout(()=>{ clearInterval(t); res(); }, 1600);
+    });
+
+    function chooseVoice(){
+      const v = speechSynthesis.getVoices() || [];
+      preferredVoice =
+        v.find(x=>/Google UK English Female/i.test(x.name)) ||
+        v.find(x=>/Samantha/i.test(x.name)) ||
+        v.find(x=>/Zira/i.test(x.name)) ||
+        v.find(x=>/female/i.test(x.name)) ||
+        v.find(x=>/^en/i.test(x.lang||'')) ||
+        null;
+    }
+
+    function speak(text){
+      setBubble(text);
+      if (!voiceEnabled || !('speechSynthesis' in window)) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.02; u.pitch = 1.06;
+      if (preferredVoice) u.voice = preferredVoice;
+      try{ speechSynthesis.cancel(); }catch{}
+      speechSynthesis.speak(u);
+    }
+
+    // ---------- mic (STT) ----------
+    async function ensureMicPermission(){
+      if (!navigator.mediaDevices?.getUserMedia) return;
+      try{
+        const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+        stream.getTracks().forEach(t=>t.stop());
+      }catch(e){
+        throw new Error('Mic permission denied');
+      }
+    }
+
+    function listenOnce(){
+      return new Promise((resolve,reject)=>{
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return reject(new Error('SpeechRecognition not supported (use Chrome/Edge)'));
+        const rec = new SR();
+        rec.lang = 'en-AU';
+        rec.interimResults = false;
+        rec.maxAlternatives = 1;
+        rec.onresult = e => resolve(e.results[0][0].transcript);
+        rec.onerror  = e => reject(new Error(e.error||'rec_error'));
+        rec.onend    = () => {};
+        rec.start();
+      });
+    }
+
+    // ---------- boot ----------
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      if ('speechSynthesis' in window){
+        await waitForVoices();
+        chooseVoice();
+        speechSynthesis.onvoiceschanged = ()=> chooseVoice();
+      }
+
+      const name = getParam('studentName') || 'there';
+      const id   = getParam('studentId') || '';
+      $('#welcomeTag').textContent = id ? `ID ${id}` : 'Guest';
+      $('#hello').textContent = `Welcome, ${name}!`;
+
+      const greet = `Welcome to Torrens Tower, ${name}. For important updates, please check your student email. How can I help you today?`;
+      setBubble(greet);
+
+      // enable TTS after first gesture (required by browsers)
+      const enableVoice = ()=>{ voiceEnabled = true; if ('speechSynthesis' in window && !preferredVoice) chooseVoice(); };
+      document.body.addEventListener('mousedown', enableVoice, { once:true });
+      document.body.addEventListener('touchstart', enableVoice, { once:true });
+
+      // MyLearn gallery lightbox
+      const gallery = $('#gallery');
+      const lightbox = $('#lightbox'); const lbImg = $('#lightbox img');
+      gallery.addEventListener('click', e=>{
+        const img = e.target.closest('img'); if (!img) return;
+        lbImg.src = img.dataset.big || img.src;
+        lightbox.style.display = 'flex';
+      });
+      lightbox.addEventListener('click', ()=>{ lightbox.style.display = 'none'; });
+
+      // left menu
+      document.querySelectorAll('[data-intent]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const intent = btn.dataset.intent;
+          const txt = replyForIntent(intent, {name, id});
+          setBubble(txt); speak(txt);
+
+          // show gallery only for MyLearn
+          gallery.style.display = intent === 'mylearn' ? 'flex' : 'none';
+        });
+      });
+
+      // typed -> Speak + Enter
+      async function askAndSpeak(q){
+        if (!q) return;
+        const ans = await askAI(q, {name, id});
+        setBubble(ans); speak(ans);
+      }
+      $('#say').addEventListener('click', ()=> askAndSpeak($('#ask').value.trim()));
+      $('#ask').addEventListener('keydown', e=>{
+        if (e.key === 'Enter') askAndSpeak($('#ask').value.trim());
+      });
+
+      // mic
+      $('#mic').addEventListener('click', async ()=>{
+        try{
+          await ensureMicPermission();
+          const heard = await listenOnce();
+          if (!heard) return;
+          $('#ask').value = heard;
+          const ans = await askAI(heard, {name, id});
+          setBubble(ans); speak(ans);
+        }catch(e){
+          setBubble(`Mic error: ${e.message}. Use Chrome/Edge over HTTPS (or localhost) and allow mic access.`);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

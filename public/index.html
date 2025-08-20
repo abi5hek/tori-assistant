@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Torrens Tower — Welcome</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container nav">
+      <div class="brand">
+        <span class="dot"></span>
+        <span class="title">Torrens Tower</span>
+      </div>
+      <span class="badge">Student Assistant</span>
+      <div class="spacer"></div>
+      <span class="kicker">Web Demo</span>
+    </div>
+  </header>
+
+  <!-- Page -->
+  <main class="container mt-16">
+    <div class="grid-login">
+      <!-- left: login -->
+      <section class="panel card">
+        <h1 class="big">Welcome to <span style="color:var(--accent)">Torrens Tower</span></h1>
+        <p class="sub">Your friendly assistant for fees, enrolment, grades, MyLearn, and campus events.</p>
+
+        <label for="studentId">Student ID</label>
+        <input id="studentId" type="text" placeholder="e.g., A123456" />
+
+        <label for="studentName">Your name</label>
+        <input id="studentName" type="text" placeholder="e.g., Abhishek" />
+
+        <div class="row mt-12">
+          <button id="enterBtn" class="btn">Enter</button>
+          <button id="voiceBtn" class="btn secondary">🔊 Voice Test</button>
+        </div>
+        <div class="hint">We only use your name/ID in this session to personalize the experience.</div>
+      </section>
+
+      <!-- right: Tori -->
+      <aside class="panel pad">
+        <img class="right-img" src="./media/tori-waving.jpeg" alt="Tori waving" />
+        <div class="hint mt-12">Hi, I’m Tori. Click “Voice Test” to check audio, then “Enter”.</div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Page logic -->
+  <script>
+    // We will TRY to import your existing module.
+    // If it fails (path/hosting issue), we FALL BACK to inline TTS.
+    (async () => {
+      let initSpeech, speak;
+      try {
+        const mod = await import('./js/main.js'); // your existing file
+        initSpeech = mod.initSpeech;
+        speak = mod.speak;
+        console.log('Loaded ./js/main.js');
+      } catch (e) {
+        console.warn('main.js not found or failed to load. Using inline TTS fallback.', e);
+
+        // ------- INLINE TTS FALLBACK (no design changes) -------
+        let preferredVoice = null;
+        async function waitForVoices(){
+          return new Promise(res=>{
+            if (!('speechSynthesis' in window)) return res();
+            const have = ()=> (speechSynthesis.getVoices()||[]).length>0;
+            if (have()) return res();
+            const t = setInterval(()=>{ if (have()){ clearInterval(t); res(); }}, 120);
+            setTimeout(()=>{ clearInterval(t); res(); }, 1600);
+          });
+        }
+        function chooseVoice(){
+          const v = speechSynthesis.getVoices() || [];
+          preferredVoice =
+            v.find(x=>/Google UK English Female/i.test(x.name)) ||
+            v.find(x=>/Samantha/i.test(x.name)) ||
+            v.find(x=>/Zira/i.test(x.name)) ||
+            v.find(x=>/female/i.test(x.name)) ||
+            v.find(x=>/^en/i.test(x.lang||'')) || null;
+        }
+        initSpeech = async function(){
+          if (!('speechSynthesis' in window)) {
+            console.warn('SpeechSynthesis not supported in this browser.');
+            return;
+          }
+          // Prepare voices list (but actual speaking must be after a click)
+          await waitForVoices();
+          chooseVoice();
+          if ('speechSynthesis' in window){
+            speechSynthesis.onvoiceschanged = ()=> chooseVoice();
+          }
+        };
+        speak = function(text){
+          if (!('speechSynthesis' in window)) return;
+          const u = new SpeechSynthesisUtterance(text);
+          u.rate = 1.02; u.pitch = 1.06;
+          if (preferredVoice) u.voice = preferredVoice;
+          try { speechSynthesis.cancel(); } catch {}
+          speechSynthesis.speak(u);
+        };
+        // ------- /INLINE TTS FALLBACK -------
+      }
+
+      // Hook up the UI same as before
+      await (initSpeech?.() || Promise.resolve());
+
+      document.getElementById('voiceBtn').addEventListener('click', () => {
+        // This click is the required user gesture → speaking is allowed
+        speak("Hello! I'm Tori. If you can hear me, audio is working. Enter your student I D and name, then press Enter.");
+      });
+
+      document.getElementById('enterBtn').addEventListener('click', () => {
+        const id = document.getElementById('studentId').value.trim();
+        const name = document.getElementById('studentName').value.trim();
+        const params = new URLSearchParams({ studentId: id, studentName: name }).toString();
+        window.location.href = `./app.html?${params}`;
+      });
+    })();
+  </script>
+</body>
+</html>

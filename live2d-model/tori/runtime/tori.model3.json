@@ -1,0 +1,27 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "tori.moc3",
+    "Textures": [
+      "tori.1024/texture_00.png",
+      "tori.1024/texture_01.png",
+      "tori.1024/texture_02.png",
+      "tori.1024/texture_03.png",
+      "tori.1024/texture_04.png"
+    ],
+    "Physics": "tori.physics3.json",
+    "Pose": "tori.pose3.json",
+    "DisplayInfo": "tori.cdi3.json",
+    "Motions": {
+      "FlickUp": [{ "File": "motion/01.motion3.json" }],
+      "Tap":     [{ "File": "motion/02.motion3.json" }],
+      "Flick3":  [{ "File": "motion/03.motion3.json" }],
+      "Idle":    [{ "File": "motion/04.motion3.json" }]
+    }
+  },
+  "Groups": [
+    { "Target": "Parameter", "Name": "EyeBlink", "Ids": ["PARAM_EYE_L_OPEN","PARAM_EYE_R_OPEN"] },
+    { "Target": "Parameter", "Name": "LipSync",  "Ids": ["PARAM_MOUTH_OPEN_Y"] }
+  ],
+  "HitAreas": []
+}
